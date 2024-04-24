@@ -16,7 +16,8 @@ paper, with a few slight deviations, and the generated samples are of similar qu
 git clone https://github.com/otuva/handwriting-synthesis
 cd handwriting-synthesis
 python -m venv venv
-source venv/bin/activate
+# source venv/bin/activate # linux
+./venv/Scripts/activate.bat # windows
 pip install -r requirements.txt
 ```
 

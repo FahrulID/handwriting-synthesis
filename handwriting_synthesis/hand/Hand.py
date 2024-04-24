@@ -5,7 +5,7 @@ import numpy as np
 
 from handwriting_synthesis import drawing
 from handwriting_synthesis.config import prediction_path, checkpoint_path, style_path
-from handwriting_synthesis.hand._draw import _draw
+from handwriting_synthesis.hand._draw import _draw, _simulate_paragraph_word_counts, _draw_document
 from handwriting_synthesis.rnn import RNN
 
 
@@ -37,7 +37,7 @@ class Hand(object):
         )
         self.nn.restore()
 
-    def write(self, filename, lines, biases=None, styles=None, stroke_colors=None, stroke_widths=None):
+    def write(self, filename, lines, biases=None, styles=None, stroke_colors=None, stroke_widths=None, text_align='center'):
         valid_char_set = set(drawing.alphabet)
         for line_num, line in enumerate(lines):
             if len(line) > 75:
@@ -56,9 +56,58 @@ class Hand(object):
                             "Valid character set is {}"
                         ).format(char, line_num, valid_char_set)
                     )
+                
+        strokes = self._sample(lines, biases=biases, styles=styles)
+        _draw(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths, text_align=text_align)
+
+    def write_document(self, filename, words, biases=None, styles=None, stroke_colors=None, stroke_widths=None):
+        valid_char_set = set(drawing.alphabet)
+        for word_num, word in enumerate(words):
+            if len(word) > 75:
+                raise ValueError(
+                    (
+                        "Each word must be at most 75 characters. "
+                        "Word {} contains {}"
+                    ).format(word_num, len(word))
+                )
+
+            for char in word:
+                if char not in valid_char_set:
+                    raise ValueError(
+                        (
+                            "Invalid character {} detected in word {}. "
+                            "Valid character set is {}"
+                        ).format(char, word_num, valid_char_set)
+                    )
+            
+        strokes = self._sample(lines=words, biases=biases, styles=styles)
+        word_counts = _simulate_paragraph_word_counts(strokes, words)
+
+        lines = []
+        line = ''
+        
+        # word_counts is list of int which says how many words in each line
+        for word_count in word_counts:
+            line = ''
+            for _ in range(word_count):
+                # if the first word in the line dont add space
+                if len(line) == 0:
+                    line += words.pop(0)
+                else:
+                    line += ' ' + words.pop(0)
+            lines.append(line)
+
+        biases = [0.35 for i in lines]
+        styles = [5 for i in lines]
+        # styles from 1 to 10 roll with lines
+        # biases = [1 for i in lines]
+        # styles = np.linspace(1, 10, len(lines)) # convert to int
+        # styles = np.round(styles).astype(int)
+
+        print(styles)
 
         strokes = self._sample(lines, biases=biases, styles=styles)
-        _draw(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths)
+        _draw_document(strokes, lines, filename, stroke_colors=stroke_colors, stroke_widths=stroke_widths)
 
     def _sample(self, lines, biases=None, styles=None):
         num_samples = len(lines)
